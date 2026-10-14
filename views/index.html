@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinVibe - Personal Finance & Budget Tracker</title>
+  <meta name="description" content="A comprehensive personal finance tracker to manage income, expenses, budgets, payment reminders, and financial reports.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- AUTHENTICATION SCREEN (Shown when logged out) -->
+  <section id="auth-section" class="auth-wrapper">
+    <div class="auth-backdrop"></div>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-icon"><i class="fa-solid fa-wallet"></i></div>
+        <h1>FinVibe</h1>
+        <p class="brand-subtitle">Smart Personal Finance & Budget Tracker</p>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button id="tab-login" class="auth-tab-btn active" role="tab" aria-selected="true" onclick="switchAuthTab('login')">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
+        </button>
+        <button id="tab-register" class="auth-tab-btn" role="tab" aria-selected="false" onclick="switchAuthTab('register')">
+          <i class="fa-solid fa-user-plus"></i> Create Account
+        </button>
+      </div>
+
+      <div id="auth-alert" class="auth-alert hidden"></div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="login-identifier"><i class="fa-solid fa-user"></i> Username</label>
+          <input type="text" id="login-identifier" class="form-control" placeholder="Enter your username" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="login-password"><i class="fa-solid fa-lock"></i> Password</label>
+          <input type="password" id="login-password" class="form-control" placeholder="Enter your password" required autocomplete="current-password">
+        </div>
+        <button type="submit" id="btn-login-submit" class="btn btn-primary btn-block">
+          <span>Sign In to FinVibe</span> <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <button type="button" class="btn btn-demo btn-block mt-2" onclick="demoLogin()">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> 1-Click Demo Login
+        </button>
+      </form>
+
+      <!-- Registration Form (Only Full Name, Username, and Password) -->
+      <form id="register-form" class="auth-form hidden" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="reg-fullname"><i class="fa-regular fa-user"></i> Full Name</label>
+          <input type="text" id="reg-fullname" class="form-control" placeholder="John Doe" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="reg-username"><i class="fa-solid fa-at"></i> Username</label>
+          <input type="text" id="reg-username" class="form-control" placeholder="johndoe" required minlength="3" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="reg-password"><i class="fa-solid fa-lock"></i> Password (min. 6 characters)</label>
+          <input type="password" id="reg-password" class="form-control" placeholder="Create strong password" required minlength="6" autocomplete="new-password">
+        </div>
+        <button type="submit" id="btn-register-submit" class="btn btn-primary btn-block">
+          <span>Create Account</span> <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- MAIN APP CONTAINER (Shown when authenticated) -->
+  <div id="app-container" class="app-layout hidden">
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+      <div class="navbar-left">
+        <div class="nav-brand">
+          <div class="brand-icon-sm"><i class="fa-solid fa-wallet"></i></div>
+          <span class="brand-title">FinVibe</span>
+        </div>
+        <nav class="nav-links" id="primary-nav">
+          <button class="nav-item active" data-tab="dashboard" onclick="navigateTab('dashboard')">
+            <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
+          </button>
+          <button class="nav-item" data-tab="transactions" onclick="navigateTab('transactions')">
+            <i class="fa-solid fa-receipt"></i> <span>Transactions</span>
+          </button>
+          <button class="nav-item" data-tab="budgets" onclick="navigateTab('budgets')">
+            <i class="fa-solid fa-bullseye"></i> <span>Budgets</span>
+          </button>
+          <button class="nav-item" data-tab="categories" onclick="navigateTab('categories')">
+            <i class="fa-solid fa-tags"></i> <span>Categories</span>
+          </button>
+          <button class="nav-item" data-tab="reports" onclick="navigateTab('reports')">
+            <i class="fa-solid fa-chart-line"></i> <span>Reports</span>
+          </button>
+          <button class="nav-item" data-tab="reminders" onclick="navigateTab('reminders')">
+            <i class="fa-solid fa-bell"></i> <span>Reminders</span>
+            <span id="reminders-badge" class="badge-pill hidden">0</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="navbar-right">
+        <!-- Quick Alert Button -->
+        <div class="nav-alert-wrapper">
+          <button class="btn-icon" id="btn-notifications" title="Budget & Payment Alerts" onclick="toggleAlertsDropdown()">
+            <i class="fa-regular fa-bell"></i>
+            <span id="nav-alert-dot" class="alert-dot hidden"></span>
+          </button>
+          <div id="alerts-dropdown" class="alerts-dropdown hidden">
+            <div class="alerts-header">
+              <h4>Alerts & Notifications</h4>
+              <span id="alerts-count" class="badge-sm">0 active</span>
+            </div>
+            <div id="alerts-list" class="alerts-list">
+              <div class="empty-state-sm">No active alerts. All budgets on track!</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Profile Pill -->
+        <button class="user-pill" onclick="navigateTab('profile')" title="View Profile">
+          <div class="user-avatar-small" id="nav-user-avatar">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="user-pill-info">
+            <span id="nav-user-name" class="user-pill-name">User</span>
+            <span id="nav-user-email" class="user-pill-sub">user@example.com</span>
+          </div>
+        </button>
+
+        <button class="btn-icon text-danger" title="Logout" onclick="handleLogout()">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- App Content Body -->
+    <main class="app-main">
+      
+      <!-- 1. DASHBOARD TAB -->
+      <section id="view-dashboard" class="tab-view active">
+        <!-- Dashboard Top Welcome & Quick Actions -->
+        <div class="view-header">
+          <div>
+            <h1 class="page-title">Financial Dashboard</h1>
+            <p class="page-subtitle" id="dashboard-date-display">Welcome back! Here is your latest financial summary.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openTransactionModal()">
+              <i class="fa-solid fa-plus"></i> Add Transaction
+            </button>
+            <button class="btn btn-secondary" onclick="openBudgetModal()">
+              <i class="fa-solid fa-bullseye"></i> Set Budget
+            </button>
+            <button class="btn btn-secondary" onclick="openReminderModal()">
+              <i class="fa-solid fa-bell"></i> Add Reminder
+            </button>
+          </div>
+        </div>
+
+        <!-- Budget & Overdue Alerts Banner Container -->
+        <div id="dashboard-alerts-banner" class="alerts-banner-container hidden"></div>
+
+        <!-- Summary Metric Cards -->
+        <div class="stat-grid">
+          <!-- Total Income -->
+          <div class="stat-card income-card">
+            <div class="stat-header">
+              <span class="stat-title">Total Income</span>
+              <div class="stat-icon income-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
+            </div>
+            <div class="stat-value text-success" id="dash-total-income">₹0.00</div>
+            <div class="stat-footer">
+              <span class="stat-sub" id="dash-month-income">This Month: ₹0.00</span>
+            </div>
+          </div>
+
+          <!-- Total Expenses -->
+          <div class="stat-card expense-card">
+            <div class="stat-header">
+              <span class="stat-title">Total Expenses</span>
+              <div class="stat-icon expense-icon"><i class="fa-solid fa-arrow-trend-down"></i></div>
+            </div>
+            <div class="stat-value text-danger" id="dash-total-expenses">₹0.00</div>
+            <div class="stat-footer">
+              <span class="stat-sub" id="dash-month-expenses">This Month: ₹0.00</span>
+            </div>
+          </div>
+
+          <!-- Net Balance -->
+          <div class="stat-card balance-card">
+            <div class="stat-header">
+              <span class="stat-title">Net Balance</span>
+              <div class="stat-icon balance-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+            </div>
+            <div class="stat-value" id="dash-net-balance">₹0.00</div>
+            <div class="stat-footer">
+              <span class="stat-sub">Lifetime Net Savings</span>
+            </div>
+          </div>
+
+          <!-- Overall Budget Progress -->
+          <div class="stat-card budget-card">
+            <div class="stat-header">
+              <span class="stat-title">Budget Progress</span>
+              <div class="stat-icon budget-icon"><i class="fa-solid fa-chart-pie"></i></div>
+            </div>
+            <div class="stat-value" id="dash-budget-percent">0%</div>
+            <div class="budget-progress-bar-bg mt-2">
+              <div id="dash-budget-progress-fill" class="budget-progress-bar-fill progress-green" style="width: 0%"></div>
+            </div>
+            <div class="stat-footer mt-1">
+              <span class="stat-sub" id="dash-budget-ratio">₹0 spent of ₹0 total limit</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary Charts Section -->
+        <div class="charts-grid">
+          <!-- Income vs Expense Pie Chart -->
+          <div class="card chart-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title"><i class="fa-solid fa-chart-pie"></i> Income vs. Expenses</h2>
+                <p class="card-subtitle">Distribution of income and expense categories</p>
+              </div>
+            </div>
+            <div class="chart-container pie-chart-container">
+              <canvas id="incomeExpensePieChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Budget Progress Line Chart -->
+          <div class="card chart-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title"><i class="fa-solid fa-chart-line"></i> Budget Progress Line Chart</h2>
+                <p class="card-subtitle">Budget limit trajectory vs. actual spending this month</p>
+              </div>
+            </div>
+            <div class="chart-container line-chart-container">
+              <canvas id="budgetProgressLineChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Transactions & Reminders Grid -->
+        <div class="dashboard-bottom-grid mt-4">
+          <!-- Recent Transactions -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Transactions</h2>
+              <button class="btn btn-sm btn-ghost" onclick="navigateTab('transactions')">View All <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-recent-transactions-tbody">
+                  <tr><td colspan="5" class="text-center text-muted py-3">No transactions recorded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Upcoming Reminders -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-regular fa-bell"></i> Upcoming Payment Reminders</h2>
+              <button class="btn btn-sm btn-ghost" onclick="navigateTab('reminders')">Manage <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div id="dash-reminders-list" class="reminders-mini-list">
+              <div class="text-muted text-center py-4">No upcoming payments due in the next 7 days.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. TRANSACTIONS TAB -->
+      <section id="view-transactions" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h1 class="page-title">Transaction History</h1>
+            <p class="page-subtitle">Track, filter, search, and export your income and expenses.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-outline" onclick="exportTransactionsCSV()">
+              <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+            <button class="btn btn-outline" onclick="exportTransactionsPDF()">
+              <i class="fa-solid fa-file-pdf"></i> Export PDF
+            </button>
+            <button class="btn btn-primary" onclick="openTransactionModal()">
+              <i class="fa-solid fa-plus"></i> New Transaction
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="card filter-card mb-3">
+          <div class="filter-grid">
+            <!-- Search -->
+            <div class="form-group mb-0">
+              <label for="tx-search-input">Search Keywords</label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="tx-search-input" class="form-control" placeholder="Search notes or category..." oninput="debounceTxFetch()">
+              </div>
+            </div>
+            <!-- Type Filter -->
+            <div class="form-group mb-0">
+              <label for="tx-filter-type">Type</label>
+              <select id="tx-filter-type" class="form-control" onchange="fetchTransactions(1)">
+                <option value="all">All Types</option>
+                <option value="income">Income (+)</option>
+                <option value="expense">Expense (-)</option>
+              </select>
+            </div>
+            <!-- Category Filter -->
+            <div class="form-group mb-0">
+              <label for="tx-filter-category">Category</label>
+              <select id="tx-filter-category" class="form-control" onchange="fetchTransactions(1)">
+                <option value="all">All Categories</option>
+              </select>
+            </div>
+            <!-- Start Date -->
+            <div class="form-group mb-0">
+              <label for="tx-filter-start-date">From Date</label>
+              <input type="date" id="tx-filter-start-date" class="form-control" onchange="fetchTransactions(1)">
+            </div>
+            <!-- End Date -->
+            <div class="form-group mb-0">
+              <label for="tx-filter-end-date">To Date</label>
+              <input type="date" id="tx-filter-end-date" class="form-control" onchange="fetchTransactions(1)">
+            </div>
+            <!-- Sort By -->
+            <div class="form-group mb-0">
+              <label for="tx-sort">Sort By</label>
+              <select id="tx-sort" class="form-control" onchange="fetchTransactions(1)">
+                <option value="date_desc">Date (Newest First)</option>
+                <option value="date_asc">Date (Oldest First)</option>
+                <option value="amount_desc">Amount (Highest First)</option>
+                <option value="amount_asc">Amount (Lowest First)</option>
+                <option value="category_asc">Category (A-Z)</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-actions mt-2">
+            <button class="btn btn-sm btn-ghost" onclick="resetTxFilters()">
+              <i class="fa-solid fa-rotate-left"></i> Reset Filters
+            </button>
+          </div>
+        </div>
+
+        <!-- Transactions Table Card -->
+        <div class="card" id="printable-transactions-section">
+          <div class="table-responsive">
+            <table class="app-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Notes</th>
+                  <th class="text-right no-print">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="transactions-tbody">
+                <tr><td colspan="6" class="text-center py-4">Loading transactions...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="pagination-wrapper no-print">
+            <div class="pagination-info" id="tx-pagination-info">Showing 0 of 0 transactions</div>
+            <div class="pagination-controls" id="tx-pagination-controls">
+              <!-- Dynamically populated buttons -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. BUDGETS TAB -->
+      <section id="view-budgets" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h1 class="page-title">Budget Management & Tracking</h1>
+            <p class="page-subtitle">Set monthly, yearly, or custom spending targets with visual alerts.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openBudgetModal()">
+              <i class="fa-solid fa-plus"></i> Create New Budget
+            </button>
+          </div>
+        </div>
+
+        <!-- Budget Visual Status Indicator Guide -->
+        <div class="budget-legend-bar">
+          <span class="legend-item"><span class="legend-dot bg-green"></span> On Track (&lt; 80%)</span>
+          <span class="legend-item"><span class="legend-dot bg-amber"></span> Nearing Limit (80% - 100%)</span>
+          <span class="legend-item"><span class="legend-dot bg-red"></span> Exceeded Limit (&gt; 100%)</span>
+        </div>
+
+        <!-- Budgets Grid -->
+        <div id="budgets-grid" class="budgets-grid mt-3">
+          <!-- Dynamically populated budget cards -->
+        </div>
+      </section>
+
+      <!-- 4. CATEGORIES TAB -->
+      <section id="view-categories" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h1 class="page-title">Category Management</h1>
+            <p class="page-subtitle">Organize and personalize your income and expense categories.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openCategoryModal()">
+              <i class="fa-solid fa-plus"></i> Add Category
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter tabs for categories -->
+        <div class="segment-tabs mb-3">
+          <button class="segment-btn active" onclick="filterCategoryCards('all', this)">All Categories</button>
+          <button class="segment-btn" onclick="filterCategoryCards('expense', this)">Expense Categories</button>
+          <button class="segment-btn" onclick="filterCategoryCards('income', this)">Income Categories</button>
+        </div>
+
+        <!-- Categories Grid -->
+        <div id="categories-grid" class="categories-grid">
+          <!-- Dynamically populated category chips/cards -->
+        </div>
+      </section>
+
+      <!-- 5. FINANCIAL REPORTS TAB -->
+      <section id="view-reports" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h1 class="page-title">Financial Reports</h1>
+            <p class="page-subtitle">Deep dive into your cashflow, spending habits, and budget utilization.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="exportReportPDF()">
+              <i class="fa-solid fa-file-pdf"></i> Export Report as PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- Report Controls Bar -->
+        <div class="card mb-4 no-print">
+          <div class="report-controls-grid">
+            <div class="form-group mb-0">
+              <label for="report-type-select"><i class="fa-solid fa-file-lines"></i> Report Type</label>
+              <select id="report-type-select" class="form-control" onchange="generateReport()">
+                <option value="income_vs_expense">Income vs. Expense Report</option>
+                <option value="category_spending">Category-wise Spending Report</option>
+                <option value="budget_utilization">Budget Utilization Report</option>
+              </select>
+            </div>
+            <div class="form-group mb-0">
+              <label for="report-timeframe-select"><i class="fa-regular fa-calendar"></i> Time Frame</label>
+              <select id="report-timeframe-select" class="form-control" onchange="handleReportTimeframeChange()">
+                <option value="this_month">This Month</option>
+                <option value="last_30_days">Last 30 Days</option>
+                <option value="last_3_months">Last 3 Months</option>
+                <option value="year_to_date">Year-to-Date</option>
+                <option value="custom">Custom Date Range</option>
+              </select>
+            </div>
+            <div class="form-group mb-0 hidden" id="report-custom-start-group">
+              <label for="report-start-date">Start Date</label>
+              <input type="date" id="report-start-date" class="form-control" onchange="generateReport()">
+            </div>
+            <div class="form-group mb-0 hidden" id="report-custom-end-group">
+              <label for="report-end-date">End Date</label>
+              <input type="date" id="report-end-date" class="form-control" onchange="generateReport()">
+            </div>
+            <div class="form-group mb-0 align-self-end">
+              <button class="btn btn-secondary btn-block" onclick="generateReport()">
+                <i class="fa-solid fa-arrows-rotate"></i> Update Report
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Printable Report Content Container -->
+        <div id="printable-report-container" class="printable-report">
+          <!-- Dynamically rendered based on selected report type -->
+        </div>
+      </section>
+
+      <!-- 6. PAYMENT REMINDERS TAB -->
+      <section id="view-reminders" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h1 class="page-title">Payment Reminders</h1>
+            <p class="page-subtitle">Never miss a bill, subscription, or loan payment with scheduled alerts.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openReminderModal()">
+              <i class="fa-solid fa-plus"></i> New Reminder
+            </button>
+          </div>
+        </div>
+
+        <!-- Reminders Segment Tabs -->
+        <div class="segment-tabs mb-3">
+          <button class="segment-btn active" onclick="filterReminders('all', this)">All Reminders</button>
+          <button class="segment-btn" onclick="filterReminders('due', this)">Due / Overdue</button>
+          <button class="segment-btn" onclick="filterReminders('upcoming', this)">Upcoming</button>
+          <button class="segment-btn" onclick="filterReminders('paid', this)">Completed / Paid</button>
+        </div>
+
+        <!-- Reminders List -->
+        <div id="reminders-cards-container" class="reminders-grid">
+          <!-- Dynamically populated reminder cards -->
+        </div>
+      </section>
+
+      <!-- 7. USER PROFILE TAB -->
+      <section id="view-profile" class="tab-view">
+        <div class="view-header">
+          <div>
+            <h1 class="page-title">User Profile & Account</h1>
+            <p class="page-subtitle">Manage personal details, avatar, and security credentials.</p>
+          </div>
+        </div>
+
+        <div class="profile-layout">
+          <!-- Profile Card -->
+          <div class="card profile-info-card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-regular fa-id-badge"></i> Personal Information</h2>
+            </div>
+            <form id="profile-form" onsubmit="handleUpdateProfile(event)">
+              <!-- Profile Picture Upload & Preview -->
+              <div class="profile-pic-section">
+                <div class="avatar-large-container">
+                  <img id="profile-preview-img" class="avatar-large hidden" alt="Profile Avatar">
+                  <div id="profile-avatar-placeholder" class="avatar-large avatar-placeholder">
+                    <i class="fa-solid fa-user"></i>
+                  </div>
+                  <label for="profile-pic-input" class="avatar-upload-badge" title="Change Avatar">
+                    <i class="fa-solid fa-camera"></i>
+                  </label>
+                  <input type="file" id="profile-pic-input" accept="image/*" class="hidden" onchange="handleAvatarFileSelect(event)">
+                </div>
+                <div class="avatar-meta">
+                  <h3 id="profile-name-heading" class="profile-name-text">User Name</h3>
+                  <p id="profile-email-sub" class="profile-email-text">user@example.com</p>
+                  <small class="text-muted">Click camera icon to upload new picture (PNG, JPG, WebP)</small>
+                </div>
+              </div>
+
+              <div class="form-row mt-3">
+                <div class="form-group">
+                  <label for="profile-fullname"><i class="fa-regular fa-user"></i> Full Name</label>
+                  <input type="text" id="profile-fullname" class="form-control" required>
+                </div>
+                <div class="form-group">
+                  <label for="profile-username"><i class="fa-solid fa-at"></i> Username</label>
+                  <input type="text" id="profile-username" class="form-control" placeholder="Unique username">
+                </div>
+              </div>
+
+              <!-- Registered Email: Read Only as required by prompt -->
+              <div class="form-group">
+                <label for="profile-email"><i class="fa-regular fa-envelope"></i> Email Address <span class="badge-lock"><i class="fa-solid fa-lock"></i> Read-Only</span></label>
+                <input type="email" id="profile-email" class="form-control" readonly title="Registered email address is read-only">
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="profile-phone"><i class="fa-solid fa-phone"></i> Phone Number</label>
+                  <input type="tel" id="profile-phone" class="form-control" placeholder="+1 (555) 000-0000">
+                </div>
+                <div class="form-group">
+                  <label for="profile-dob"><i class="fa-regular fa-calendar"></i> Date of Birth</label>
+                  <input type="date" id="profile-dob" class="form-control">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="profile-address"><i class="fa-solid fa-location-dot"></i> Address</label>
+                <input type="text" id="profile-address" class="form-control" placeholder="Street, City, State, ZIP">
+              </div>
+
+              <button type="submit" id="btn-save-profile" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> Save Profile Details
+              </button>
+            </form>
+          </div>
+
+          <!-- Change Password Card -->
+          <div class="card security-card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-shield-halved"></i> Security & Password</h2>
+            </div>
+            <form id="change-password-form" onsubmit="handleChangePassword(event)">
+              <div class="form-group">
+                <label for="current-password"><i class="fa-solid fa-lock"></i> Current Password</label>
+                <input type="password" id="current-password" class="form-control" required autocomplete="current-password">
+              </div>
+              <div class="form-group">
+                <label for="new-password"><i class="fa-solid fa-key"></i> New Password</label>
+                <input type="password" id="new-password" class="form-control" minlength="6" required autocomplete="new-password" placeholder="At least 6 characters">
+              </div>
+              <div class="form-group">
+                <label for="confirm-new-password"><i class="fa-solid fa-key"></i> Confirm New Password</label>
+                <input type="password" id="confirm-new-password" class="form-control" minlength="6" required autocomplete="new-password">
+              </div>
+              <button type="submit" id="btn-change-password" class="btn btn-warning btn-block">
+                <i class="fa-solid fa-lock"></i> Update Password
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- 1. Transaction Modal (Add / Edit) -->
+  <div id="modal-transaction" class="modal-backdrop hidden" onclick="handleModalBackdropClick(event, 'modal-transaction')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-tx-title">Add Transaction</h3>
+        <button class="btn-close" onclick="closeModal('modal-transaction')">&times;</button>
+      </div>
+      <form id="form-transaction" onsubmit="handleTransactionSubmit(event)">
+        <input type="hidden" id="tx-id">
+        <!-- Transaction Type Radio/Toggle -->
+        <div class="form-group">
+          <label>Transaction Type</label>
+          <div class="type-selector">
+            <label class="type-pill">
+              <input type="radio" name="tx_type" id="tx-type-expense" value="expense" checked onchange="updateCategoryDropdownForType('expense')">
+              <span class="type-pill-text expense-pill"><i class="fa-solid fa-arrow-down"></i> Expense</span>
+            </label>
+            <label class="type-pill">
+              <input type="radio" name="tx_type" id="tx-type-income" value="income" onchange="updateCategoryDropdownForType('income')">
+              <span class="type-pill-text income-pill"><i class="fa-solid fa-arrow-up"></i> Income</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="tx-category">Category</label>
+          <select id="tx-category" class="form-control" required>
+            <!-- Categories injected dynamically -->
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tx-amount">Amount (₹)</label>
+            <input type="number" step="0.01" min="0.01" id="tx-amount" class="form-control" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label for="tx-date">Date</label>
+            <input type="date" id="tx-date" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="tx-notes">Notes (Optional)</label>
+          <textarea id="tx-notes" class="form-control" rows="2" placeholder="e.g. Weekly grocery haul at Trader Joe's"></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-transaction')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-tx-submit">Save Transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Budget Modal (Create / Edit) -->
+  <div id="modal-budget" class="modal-backdrop hidden" onclick="handleModalBackdropClick(event, 'modal-budget')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-budget-title">Create Budget</h3>
+        <button class="btn-close" onclick="closeModal('modal-budget')">&times;</button>
+      </div>
+      <form id="form-budget" onsubmit="handleBudgetSubmit(event)">
+        <input type="hidden" id="budget-id">
+        <div class="form-group">
+          <label for="budget-name">Budget Name</label>
+          <input type="text" id="budget-name" class="form-control" placeholder="e.g. Monthly Dining Out" required>
+        </div>
+
+        <div class="form-group">
+          <label>Expense Categories</label>
+          <div class="categories-checkbox-list" id="budget-categories-list">
+            <!-- Dynamically populated checkboxes -->
+          </div>
+          <small class="text-muted">Select specific expense categories or select "All Expenses"</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="budget-amount">Budget Amount Limit (₹)</label>
+            <input type="number" step="0.01" min="1" id="budget-amount" class="form-control" placeholder="500.00" required>
+          </div>
+          <div class="form-group">
+            <label for="budget-timeframe">Time Frame</label>
+            <select id="budget-timeframe" class="form-control" onchange="toggleCustomBudgetDateRange(this.value)">
+              <option value="monthly">Monthly (Current Month)</option>
+              <option value="yearly">Yearly (Current Year)</option>
+              <option value="custom">Custom Date Period</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row hidden" id="budget-custom-dates">
+          <div class="form-group">
+            <label for="budget-start-date">Start Date</label>
+            <input type="date" id="budget-start-date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label for="budget-end-date">End Date</label>
+            <input type="date" id="budget-end-date" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="budget-alert-threshold">Alert Warning Threshold (% of limit)</label>
+          <input type="number" id="budget-alert-threshold" class="form-control" min="50" max="100" value="80" required>
+          <small class="text-muted">Receive early warning when spending hits this percentage (default 80%)</small>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-budget')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-budget-submit">Save Budget</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Category Modal (Add / Edit) -->
+  <div id="modal-category" class="modal-backdrop hidden" onclick="handleModalBackdropClick(event, 'modal-category')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-cat-title">Add Category</h3>
+        <button class="btn-close" onclick="closeModal('modal-category')">&times;</button>
+      </div>
+      <form id="form-category" onsubmit="handleCategorySubmit(event)">
+        <input type="hidden" id="category-id">
+        <div class="form-group">
+          <label for="cat-name">Category Name</label>
+          <input type="text" id="cat-name" class="form-control" placeholder="e.g. Subscriptions" required>
+        </div>
+
+        <div class="form-group">
+          <label for="cat-type">Category Type</label>
+          <select id="cat-type" class="form-control" required>
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="cat-color">Category Color</label>
+          <div class="color-picker-wrapper">
+            <input type="color" id="cat-color" class="color-picker-input" value="#6366f1">
+            <div class="color-presets">
+              <span class="color-dot" style="background:#10b981" onclick="selectPresetColor('#10b981')"></span>
+              <span class="color-dot" style="background:#3b82f6" onclick="selectPresetColor('#3b82f6')"></span>
+              <span class="color-dot" style="background:#8b5cf6" onclick="selectPresetColor('#8b5cf6')"></span>
+              <span class="color-dot" style="background:#ec4899" onclick="selectPresetColor('#ec4899')"></span>
+              <span class="color-dot" style="background:#f59e0b" onclick="selectPresetColor('#f59e0b')"></span>
+              <span class="color-dot" style="background:#ef4444" onclick="selectPresetColor('#ef4444')"></span>
+              <span class="color-dot" style="background:#06b6d4" onclick="selectPresetColor('#06b6d4')"></span>
+              <span class="color-dot" style="background:#64748b" onclick="selectPresetColor('#64748b')"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-category')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Reminder Modal (Add / Edit) -->
+  <div id="modal-reminder" class="modal-backdrop hidden" onclick="handleModalBackdropClick(event, 'modal-reminder')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-reminder-title">Schedule Payment Reminder</h3>
+        <button class="btn-close" onclick="closeModal('modal-reminder')">&times;</button>
+      </div>
+      <form id="form-reminder" onsubmit="handleReminderSubmit(event)">
+        <input type="hidden" id="reminder-id">
+        <div class="form-group">
+          <label for="rem-title">Payment Reminder Title</label>
+          <input type="text" id="rem-title" class="form-control" placeholder="e.g. Mortgage Payment or Electricity Bill" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="rem-category">Expense Category</label>
+            <select id="rem-category" class="form-control">
+              <!-- Dynamically populated with expense categories -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="rem-amount">Amount Due (₹)</label>
+            <input type="number" step="0.01" min="0" id="rem-amount" class="form-control" placeholder="0.00">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="rem-due-date">Due Date</label>
+            <input type="date" id="rem-due-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="rem-frequency">Frequency</label>
+            <select id="rem-frequency" class="form-control" required>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+              <option value="once">Once (One-time)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="rem-notification-method">Notification Method</label>
+          <select id="rem-notification-method" class="form-control">
+            <option value="in-app">In-App Dashboard Alerts</option>
+            <option value="email">Email Notification</option>
+            <option value="push">Push Notification</option>
+          </select>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-reminder')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-reminder-submit">Save Reminder</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>
